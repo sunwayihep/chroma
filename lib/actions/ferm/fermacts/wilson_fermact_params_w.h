@@ -20,6 +20,7 @@ namespace Chroma
     
     Real Mass;
     AnisoParam_t anisoParam;
+	bool isMdagM;
   };
 
 

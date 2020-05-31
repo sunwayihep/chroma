@@ -497,7 +497,16 @@ public:
 		quda_inv_param.Ls = 1;
 
 		// FIXME: Make this an XML Param
-		mg_param.run_verify = QUDA_BOOLEAN_NO;
+		if (ip.check_multigrid_setup == true ) {
+			mg_param.run_verify = QUDA_BOOLEAN_YES;
+			mg_param.run_low_mode_check = QUDA_BOOLEAN_NO;
+			mg_param.run_oblique_proj_check = QUDA_BOOLEAN_NO;
+		}
+		else {
+			mg_param.run_verify = QUDA_BOOLEAN_NO;
+			mg_param.run_low_mode_check = QUDA_BOOLEAN_NO;
+			mg_param.run_oblique_proj_check = QUDA_BOOLEAN_NO;
+		}
 
 		mg_param.n_level = ip.mg_levels;
 
@@ -525,30 +534,98 @@ public:
 				mg_param.n_vec[i] = ip.nvec[i];
 				mg_param.nu_pre[i] = ip.nu_pre[i];
 				mg_param.nu_post[i] = ip.nu_post[i];
+				mg_param.setup_inv_type[i] = theChromaToQudaSolverTypeMap::Instance()[ ip.subspaceSolver[i]];
+				mg_param.setup_tol[i] = toDouble(ip.rsdTargetSubspaceCreate[i]);
+				mg_param.setup_maxiter[i] = ip.maxIterSubspaceCreate[i];
+				mg_param.setup_maxiter_refresh[i] = ip.maxIterSubspaceRefresh[i]; 
+				mg_param.num_setup_iter[i] =1; 
+				mg_param.precision_null[i] = mg_inv_param.cuda_prec_precondition;
 			}
-			mg_param.smoother_tol[i] = toDouble(ip.smootherTol[i]);
-			mg_param.global_reduction[i] = QUDA_BOOLEAN_YES;
+
+			if ( i > 0 ) {
+
+				switch(ip.coarseSolverType[i-1]) {
+				case GCR:
+					mg_param.coarse_solver[i] = QUDA_GCR_INVERTER;
+					break;
+				case CA_GCR:
+					mg_param.coarse_solver[i] = QUDA_CA_GCR_INVERTER;
+					if ( i != mg_param.n_level-1 ) {
+						QDPIO::cout << "ERROR: Right now CA_GCR is only allowed on the bottom level as a coarse solver"
+								<< std::endl;
+						QDP_abort(1);
+
+					}
+					break;
+				default:
+					QDPIO::cout << "Invalid coarse solver. Right now only GCR and CA_GCR solvers are allowed" << std::endl;
+					break;
+				};
+			}
+			else {
+				// Level  0 isolver is the outer solver. So this parameter is ignored. Set it to something sensible.
+				mg_param.coarse_solver[0] = QUDA_GCR_INVERTER;
+
+			}
+			mg_param.coarse_solver_tol[i] = toDouble(ip.tol[i]);
+			mg_param.coarse_solver_maxiter[i] = ip.maxIterations[i];
 
 			switch( ip.smootherType[i] ) {
 			case MR:
 				mg_param.smoother[i] = QUDA_MR_INVERTER;
-				mg_param.omega[i] = 0.85;
+				mg_param.smoother_tol[i] = toDouble(ip.smootherTol[i]);
+				mg_param.smoother_solve_type[i] = QUDA_DIRECT_PC_SOLVE;
+				mg_param.omega[i] = toDouble(ip.relaxationOmegaMG[i]);
+				mg_param.smoother_schwarz_type[i] = theChromaToQudaSchwarzTypeMap::Instance()[ip.smootherSchwarzType[i]];
+				mg_param.smoother_schwarz_cycle[i] = ip.smootherSchwarzCycle[i];
 				break;
 			case CA_GCR:
 				mg_param.smoother[i] = QUDA_CA_GCR_INVERTER;
-				mg_param.omega[i] = 0.85;
+				mg_param.smoother_tol[i] = toDouble(ip.smootherTol[i]);
+				mg_param.smoother_solve_type[i] = QUDA_DIRECT_PC_SOLVE;
+				mg_param.omega[i] = toDouble(ip.relaxationOmegaMG[i]);
+				mg_param.smoother_schwarz_type[i] = theChromaToQudaSchwarzTypeMap::Instance()[ip.smootherSchwarzType[i]];
+				mg_param.smoother_schwarz_cycle[i] = ip.smootherSchwarzCycle[i];
 				break;
 			default:
 				QDPIO::cout << "Unknown or no smother type specified, no smoothing inverter will be used." << std::endl;
 				mg_param.smoother[i] = QUDA_INVALID_INVERTER;
+				QDP_abort(1);
 				break;
 			}
-			mg_param.location[i] = QUDA_CUDA_FIELD_LOCATION;
-			mg_param.smoother_solve_type[i] = QUDA_DIRECT_PC_SOLVE;
+					
+			if( ip.smootherHaloPrecision[i] != DEFAULT ) {
+			mg_param.smoother_halo_precision[i] = (theChromaToQudaPrecisionTypeMap::Instance())[ip.smootherHaloPrecision[i]];
+		}
+
+		if ( ip.cycle_type == "MG_VCYCLE" ) {
+			mg_param.cycle_type[i] = QUDA_MG_CYCLE_VCYCLE;
+		} else if (ip.cycle_type == "MG_RECURSIVE" ) {
+			mg_param.cycle_type[i] = QUDA_MG_CYCLE_RECURSIVE;
+		} else {
+			QDPIO::cout << "Unknown Cycle Type" << ip.cycle_type << std::endl;
+			QDP_abort(1);
+		}
+
+
+		switch( mg_param.cycle_type[i] ) {
+		case QUDA_MG_CYCLE_RECURSIVE :
 			mg_param.coarse_grid_solution_type[i] = QUDA_MATPC_SOLUTION;
+			break;
+		case QUDA_MG_CYCLE_VCYCLE :
+			mg_param.coarse_grid_solution_type[i] = QUDA_MAT_SOLUTION;
+			break;
+		default:
+			QDPIO::cerr << "Should never get here" << std::endl;
+			QDP_abort(1);
+			break;
+		}
+		mg_param.location[i] = QUDA_CUDA_FIELD_LOCATION;
+		mg_param.smoother_solve_type[i] = QUDA_DIRECT_PC_SOLVE;
+		mg_param.coarse_grid_solution_type[i] = QUDA_MATPC_SOLUTION;
 		
-			mg_param.vec_infile[i][0] = '\0';
-			mg_param.vec_outfile[i][0] = '\0';
+		mg_param.vec_infile[i][0] = '\0';
+		mg_param.vec_outfile[i][0] = '\0';
 		}
 
 		// only coarsen the spin on the first restriction
@@ -559,6 +636,8 @@ public:
 
 		mg_param.compute_null_vector = ip.generate_nullspace ? QUDA_COMPUTE_NULL_VECTOR_YES
 				: QUDA_COMPUTE_NULL_VECTOR_NO;
+		mg_param.generate_all_levels = ip.generate_all_levels ? QUDA_BOOLEAN_YES
+			: QUDA_BOOLEAN_NO;
 
 		QDPIO::cout<<"Basic MULTIGRID params copied."<<std::endl;
 		quda_inv_param.verbosity = QUDA_VERBOSE;

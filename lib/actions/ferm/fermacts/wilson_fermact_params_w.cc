@@ -46,7 +46,16 @@ namespace Chroma
     //  Read optional anisoParam.
     if (paramtop.count("AnisoParam") != 0) 
       read(paramtop, "AnisoParam", anisoParam);
-  }
+
+	if (paramtop.count("isMdagM") != 0)
+	{
+		read(paramtop, "isMdagM", isMdagM);
+	}
+	else
+	{
+		isMdagM = false;
+	}
+}
 
   //! Read parameters
   void read(XMLReader& xml, const std::string& path, WilsonFermActParams& param)
@@ -61,6 +70,7 @@ namespace Chroma
     push(xml, path);
 
     write(xml, "Mass", param.Mass);
+	write(xml, "isMdagM", param.isMdagM);
     if (param.anisoParam.anisoP)
       write(xml, "AnisoParam", param.anisoParam);
 

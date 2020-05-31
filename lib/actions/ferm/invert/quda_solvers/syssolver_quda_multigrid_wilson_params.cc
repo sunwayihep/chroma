@@ -109,6 +109,9 @@ namespace Chroma {
       MULTIGRIDParamsP = false;
     }
 
+	read(paramtop, "SubspaceID", SaveSubspaceID);
+	read(paramtop, "isMatPC", isMatPC);
+
   }
 
   void read(XMLReader& xml, const std::string& path, 

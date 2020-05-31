@@ -5,6 +5,7 @@
  */
 
 #include "eoprec_wilstype_fermact_w.h"
+#include "actions/ferm/fermacts/eoprec_wilson_fermact_w.h"
 
 namespace Chroma 
 { 
@@ -97,28 +98,50 @@ namespace Chroma
   EvenOddPrecWilsonTypeFermAct<LF,LCM,LCM>::qprop(Handle< FermState<LF,LCM,LCM> > state,
 						  const GroupXML_t& invParam) const
   {
-    StopWatch swatch2;
+	//Solve MdagM * psi = chi system instead of regular propagator
+    // downcast the FermAct to EvenOddPrecWilsonFermAct
+	// I just want to use the param therein
+	
+	auto fermact = dynamic_cast<const EvenOddPrecWilsonFermAct*> (this);
+	if( fermact == 0x0 )
+	{
+		QDPIO::cerr << "Unable to downcast FermAct to EvenOddPrecWilsonFermAct in "
+			<< __func__ << std::endl;
+		QDP_abort(1);
+	}
     
-    QDPIO::cout << "  ... constructing linop " ;
-    swatch2.reset(); swatch2.start();
-    Handle< EvenOddPrecLinearOperator<LF,LCM,LCM> > lh( (*this).linOp(state) );
-    swatch2.stop();
-    QDPIO::cout << " ..." << swatch2.getTimeInSeconds() << " sec" << std::endl;
+	if( !fermact->isMdagM() )
+	{
+		StopWatch swatch2;
+    	
+    	QDPIO::cout << "  ... constructing linop " ;
+    	swatch2.reset(); swatch2.start();
+    	Handle< EvenOddPrecLinearOperator<LF,LCM,LCM> > lh( (*this).linOp(state) );
+    	swatch2.stop();
+    	QDPIO::cout << " ..." << swatch2.getTimeInSeconds() << " sec" << std::endl;
   
   
-    QDPIO::cout << "  ... constructing invLinOp " ;
-    swatch2.reset(); swatch2.start();
-    Handle< LinOpSystemSolver<LF> > ilh((*this).invLinOp(state,invParam));
-    swatch2.stop(); 
-    QDPIO::cout << " ..." << swatch2.getTimeInSeconds() << " sec" << std::endl;
+    	QDPIO::cout << "  ... constructing invLinOp " ;
+    	swatch2.reset(); swatch2.start();
+    	Handle< LinOpSystemSolver<LF> > ilh((*this).invLinOp(state,invParam));
+    	swatch2.stop(); 
+    	QDPIO::cout << " ..." << swatch2.getTimeInSeconds() << " sec" << std::endl;
   
-    QDPIO::cout << "  ... constructing PrecFermActQprop " ;
-    swatch2.reset(); swatch2.start();
-    PrecFermActQprop<LF,LCM,LCM>* ret_val = new PrecFermActQprop<LF,LCM,LCM>(lh , ilh);
-     swatch2.stop();
-    QDPIO::cout << " ..." << swatch2.getTimeInSeconds() << " sec" << std::endl;
+    	QDPIO::cout << "  ... constructing PrecFermActQprop " ;
+    	swatch2.reset(); swatch2.start();
+    	PrecFermActQprop<LF,LCM,LCM>* ret_val = new PrecFermActQprop<LF,LCM,LCM>(lh , ilh);
+    	 swatch2.stop();
+    	QDPIO::cout << " ..." << swatch2.getTimeInSeconds() << " sec" << std::endl;
 
-    return ret_val;
+    	return ret_val;
+	}
+	else
+	{
+		QDPIO::cout << " PROPAGATOR:: Solve the MdagM system!" << std::endl;
+		auto ret_val = this->invMdagM(state, invParam);
+
+		return ret_val;
+	}
   
 }
   

@@ -74,6 +74,10 @@ namespace Chroma
       return param.Mass;
     }
 
+	bool isMdagM() const {
+		return param.isMdagM;
+	}
+
   protected:
     //! Return the fermion BC object for this action
     const CreateFermState<T,P,Q>& getCreateState() const {return *cfs;}

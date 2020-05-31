@@ -1,3 +1,5 @@
+#ifndef _mg_solver_exception_h__
+#define _mg_solver_exception_h__
 #include "chromabase.h"
 #include <exception>
 #include <string>
@@ -47,3 +49,4 @@ namespace Chroma  {
 
 
 }
+#endif

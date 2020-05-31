@@ -52,6 +52,8 @@ namespace Chroma
       Pipeline=1;
       MULTIGRIDParamsP = p.MULTIGRIDParamsP;
       MULTIGRIDParams = p.MULTIGRIDParams;
+	  SaveSubspaceID = p.SaveSubspaceID;
+	  isMatPC = p.isMatPC;
 
     }
 
@@ -77,6 +79,8 @@ namespace Chroma
 
     Handle<MULTIGRIDSolverParams> MULTIGRIDParams;
 
+	std::string SaveSubspaceID;
+	bool isMatPC;
 
   };
 
