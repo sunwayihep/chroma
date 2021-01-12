@@ -118,6 +118,14 @@ namespace Chroma {
 			//Taken from various places in the old constructor.
 
 			mg_inv_param.dslash_type = QUDA_CLOVER_WILSON_DSLASH;
+			// twisted-Clover
+			if(invParam.CloverParams.twisted_m_usedP){
+				mg_inv_param.dslash_type = QUDA_TWISTED_CLOVER_DSLASH;
+				mg_inv_param.mu = toDouble(invParam.CloverParams.twisted_m);
+				mg_inv_param.twist_flavor = QUDA_TWIST_SINGLET;
+				mg_inv_param.Ls = 1;
+				QDPIO::cout<<"Creating multigrid subspace for QUDA_TWISTED_CLOVER_DSLASH: twist = "<<mg_inv_param.mu<<std::endl;
+			}
 			mg_inv_param.inv_type = QUDA_GCR_INVERTER;
 			mg_inv_param.tol = 1e-10;
 			mg_inv_param.maxiter = 10000;

@@ -250,6 +250,15 @@ namespace Chroma
 			// Dslash type
 			quda_inv_param.dslash_type = QUDA_CLOVER_WILSON_DSLASH;
 
+			// twisted-Clover
+			if(invParam.CloverParams.twisted_m_usedP){
+				quda_inv_param.dslash_type = QUDA_TWISTED_CLOVER_DSLASH;
+				quda_inv_param.mu = toDouble(invParam.CloverParams.twisted_m);
+				quda_inv_param.twist_flavor = QUDA_TWIST_SINGLET;
+				quda_inv_param.Ls = 1;
+				QDPIO::cout<<"Use QUDA_TWISTED_CLOVER_DSLASH: twist = "<<quda_inv_param.mu<<std::endl;
+			}
+
 			// Hardwire to GCR
 			quda_inv_param.inv_type = QUDA_GCR_INVERTER;
 
@@ -267,6 +276,10 @@ namespace Chroma
 			//quda_inv_param.solution_type = QUDA_MATPC_SOLUTION;
 			//Taken from invert test.
 			quda_inv_param.solution_type = QUDA_MATPC_SOLUTION;
+			if(invParam.CloverParams.twisted_m_usedP){
+				QDPIO::cout<<"Use QUDA_MAT_SOLUTION"<<std::endl;
+				quda_inv_param.solution_type = QUDA_MAT_SOLUTION;
+			}
 			quda_inv_param.solve_type = QUDA_DIRECT_PC_SOLVE;
 
 			// Solve type
@@ -452,9 +465,13 @@ namespace Chroma
 			// Don't recompute, just copy
 			invclov->create(fstate, invParam_.CloverParams);
 
-			QDPIO::cout << solver_string << "Inverting CloverTerm" << std::endl;
-			invclov->choles(0);
-			invclov->choles(1);
+			if(invParam.CloverParams.twisted_m_usedP){
+				QDPIO::cout<<"Chroma: Let QUDA do the clover inverse with DYNAMIC_CLOVER"<<std::endl;
+			}else{
+				QDPIO::cout << "Inverting CloverTerm" << std::endl;
+				invclov->choles(0);
+				invclov->choles(1);
+			}
 
 #ifndef BUILD_QUDA_DEVIFACE_CLOVER
 #warning "NOT USING QUDA DEVICE IFACE"
@@ -585,21 +602,35 @@ namespace Chroma
 			if ( invParam.axialGaugeP ) {
 				T g_chi,g_psi;
 
-				// Gauge Fix source and initial guess
-				g_chi[ rb[1] ] = GFixMat * chi;
-				g_psi[ rb[1] ] = GFixMat * psi;
-				res = qudaInvert(*clov,
-						*invclov,
-						g_chi,
-						g_psi);
-				psi[ rb[1]] = adj(GFixMat)*g_psi;
+				if(invParam.CloverParams.twisted_m_usedP){
+					g_chi  = GFixMat * chi;
+					g_psi  = GFixMat * psi;
+					QDPIO::cout<<"Solve twisted-Clover fermion"<<std::endl;
+					res = qudaTwistedCloverInvert(g_chi, g_psi);
+					psi = adj(GFixMat)*g_psi;
+				}else{
+
+					// Gauge Fix source and initial guess
+					g_chi[ rb[1] ] = GFixMat * chi;
+					g_psi[ rb[1] ] = GFixMat * psi;
+					res = qudaInvert(*clov,
+							*invclov,
+							g_chi,
+							g_psi);
+					psi[ rb[1]] = adj(GFixMat)*g_psi;
+				}
 
 			}
 			else {
-				res = qudaInvert(*clov,
-						*invclov,
-						chi,
-						psi);
+				if(invParam.CloverParams.twisted_m_usedP){
+					QDPIO::cout<<"Solve twisted-Clover fermion"<<std::endl;
+					res = qudaTwistedCloverInvert(chi, psi);
+				}else{
+					res = qudaInvert(*clov,
+							*invclov,
+							chi,
+							psi);
+				}
 			}
 
 			swatch.stop();
@@ -665,6 +696,7 @@ namespace Chroma
 				const T& chi_s,
 				T& psi_s
 		)const;
+		SystemSolverResults_t qudaTwistedCloverInvert(const T& chi_s, T& psi_s) const;
 
 		std::string solver_string;
 	};

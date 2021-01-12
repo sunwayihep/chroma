@@ -116,6 +116,49 @@ namespace Chroma
 
   }
   
+  SystemSolverResults_t 
+  LinOpSysSolverQUDAMULTIGRIDClover::qudaTwistedCloverInvert(const T& chi_s, T& psi_s) const{
+
+    SystemSolverResults_t ret;
+    if( invParam.asymmetricP ) { 
+      // QUDA multigrid only support symmetric eo preconditioning
+      // and we rely on QUDA to compute the inverse of twisted clover term,
+      // therefore could not use the M_asymm = A_oo M_symm trick,
+      // so just use the symmetric eo preconditioning 
+      QDPIO::cerr << "Asymmetric even-odd preconditioning for multigrid not supported, " 
+		      "please use the symmetric preconditioning by set AsymmetricLinop to false"
+		  << std::endl;
+      QDP_abort(1);
+    }
+
+#ifndef BUILD_QUDA_DEVIFACE_SPINOR
+    void* spinorIn =(void *)&(chi_s.elem(all.start()).elem(0).elem(0).real());
+    void* spinorOut =(void *)&(psi_s.elem(all.start()).elem(0).elem(0).real());
+#else
+    // void* spinorIn = GetMemoryPtr( mod_chi.getId() );
+    // void* spinorOut = GetMemoryPtr( psi_s.getId() );
+    void* spinorIn;
+    void* spinorOut;
+    GetMemoryPtr2(spinorIn,spinorOut,mod_chi.getId(),psi_s.getId())
+
+#endif
+
+    // Do the solve here 
+    StopWatch swatch1; 
+    swatch1.reset();
+    swatch1.start();
+    invertQuda(spinorOut, spinorIn, (QudaInvertParam*)&quda_inv_param);
+    swatch1.stop();
+
+    QDPIO::cout << solver_string<< "time="<< quda_inv_param.secs <<" s" ;
+    QDPIO::cout << "\tPerformance="<<  quda_inv_param.gflops/quda_inv_param.secs<<" GFLOPS" ; 
+    QDPIO::cout << "\tTotal Time (incl. load gauge)=" << swatch1.getTimeInSeconds() <<" s"<<std::endl;
+
+    ret.n_count =quda_inv_param.iter;
+    ret.resid = quda_inv_param.true_res;
+    return ret;
+
+  }
 
 }
 
