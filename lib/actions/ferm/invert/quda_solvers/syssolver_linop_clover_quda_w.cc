@@ -108,6 +108,54 @@ namespace Chroma
 
   }
   
+  SystemSolverResults_t 
+  LinOpSysSolverQUDAClover::qudaTwistedCloverInvert(const T& chi_s, T& psi_s) const{
+
+    SystemSolverResults_t ret;
+
+    void *spinorIn;
+    void *spinorOut;
+
+#ifdef BUILD_QUDA_DEVIFACE_SPINOR
+    std::vector<QDPCache::ArgKey> ids;
+#endif
+  
+      // No need to transform source
+#ifndef BUILD_QUDA_DEVIFACE_SPINOR
+      spinorIn =(void *)&(chi_s.elem(all.start()).elem(0).elem(0).real());
+#else
+      //spinorIn = GetMemoryPtr( chi_s.);
+      //QDPIO::cout << "MDAGM spinor in = " << spinorIn << "\n";
+      ids.push_back(chi_s.getId());
+#endif
+  
+
+#ifndef BUILD_QUDA_DEVIFACE_SPINOR
+    spinorOut =(void *)&(psi_s.elem(all.start()).elem(0).elem(0).real());
+#else
+    ids.push_back(psi_s.getId());
+    auto dev_ptr = GetMemoryPtr(ids);
+    spinorIn  = dev_ptr[0];
+    spinorOut = dev_ptr[1];
+  
+#endif
+
+    // Do the solve here 
+    StopWatch swatch1; 
+    swatch1.reset();
+    swatch1.start();
+    invertQuda(spinorOut, spinorIn, (QudaInvertParam*)&quda_inv_param);
+    swatch1.stop();
+
+    QDPIO::cout << "QUDA_"<<solver_string<<"_TWISTED_CLOVER_SOLVER: time="<< quda_inv_param.secs <<" s" ;
+    QDPIO::cout << "\tPerformance="<<  quda_inv_param.gflops/quda_inv_param.secs<<" GFLOPS" ; 
+    QDPIO::cout << "\tTotal Time (incl. load gauge)=" << swatch1.getTimeInSeconds() <<" s"<<std::endl;
+
+    ret.n_count =quda_inv_param.iter;
+
+    return ret;
+
+  }
 
 }
 

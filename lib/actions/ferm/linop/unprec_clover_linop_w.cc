@@ -49,6 +49,16 @@ namespace Chroma
     D(tmp, psi, isign);
     chi += mhalf * tmp;
 
+    // twisted-Clover
+    if(param.twisted_m_usedP){
+	tmp = GammaConst<Ns, Ns*Ns-1>() * timesI(psi);
+	if(isign == PLUS){
+		chi += param.twisted_m * tmp;
+	}else{
+		chi -= param.twisted_m * tmp;
+	}
+    }
+
     getFermBC().modifyF(chi);
   }
 
