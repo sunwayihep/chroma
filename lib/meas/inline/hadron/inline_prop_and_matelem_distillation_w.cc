@@ -31,6 +31,8 @@
 #include "actions/ferm/fermacts/fermact_factory_w.h"
 #include "actions/ferm/fermacts/fermacts_aggregate_w.h"
 #include "meas/inline/make_xml_file.h"
+#include "actions/ferm/invert/quda_solvers/syssolver_linop_clover_quda_w.h"
+#include "actions/ferm/invert/quda_solvers/syssolver_linop_unprec_clover_quda_w.h"
 
 #include "meas/inline/io/named_objmap.h"
 
@@ -629,8 +631,11 @@ namespace Chroma
 							       params.param.prop.fermact.path));
 
 	Handle< FermState<T,P,Q> > state(S_f->createState(u));
-
-	Handle< SystemSolver<LatticeFermion> > PP = S_f->qprop(state,
+	//Handle<SystemSolver<LatticeFermion> > PP = S_f->qprop(state,
+							       params.param.prop.invParam);
+	
+	FermAct4D<T,P,Q>* S_4d = dynamic_cast<FermAct4D<T,P,Q>*>(&(*S_f));
+	Handle<SystemSolver<LatticeFermion> > PP = S_4d->invLinOp(state,
 							       params.param.prop.invParam);
       
 	QDPIO::cout << "Suitable factory found: compute all the quark props" << std::endl;
@@ -701,6 +706,9 @@ namespace Chroma
 		  snarss1.start();
 		  QDPIO::cout << "Do spin_source= " << spin_source << "  colorvec_src= " << colorvec_src << std::endl; 
 
+		  StopWatch tget;
+		  tget.reset();
+		  tget.start();
 		  // Get the source std::vector
 		  LatticeColorVector vec_srce = zero;
 	      
@@ -708,7 +716,8 @@ namespace Chroma
 		    {
 		      vec_srce = sub_eigen_map.getVec(t_source, colorvec_src);
 		    }
-
+		  tget.stop();
+		  QDPIO::cout<<"Cost at getVec is "<<tget.getTimeInSeconds()<<" secs"<<std::endl;
 		  //
 		  // Loop over each spin source and invert. 
 		  // Use the same colorstd::vector source. No spin dilution will be used.
@@ -717,8 +726,12 @@ namespace Chroma
 
 		  // Insert a ColorVector into spin index spin_source
 		  // This only overwrites sections, so need to initialize first
+		  tget.reset();
+		  tget.start();
 		  LatticeFermion chi = zero;
 		  CvToFerm(vec_srce, chi, spin_source);
+		  tget.stop();
+		  QDPIO::cout<<"Cost at CvToFerm is "<<tget.getTimeInSeconds()<<" secs"<<std::endl;
 
 		  LatticeFermion quark_soln = zero;
 
@@ -734,7 +747,12 @@ namespace Chroma
 			  badP = false;
 	      
 			  // Solve for the solution std::vector
+			  StopWatch tsolve;
+		  	  tsolve.reset();
+		  	  tsolve.start();
 			  SystemSolverResults_t res = (*PP)(quark_soln, chi);
+		      tsolve.stop();
+		      QDPIO::cout<<"Cost at SystemSolver is "<<tsolve.getTimeInSeconds()<<" secs"<<std::endl;
 		  
 			  ncg_had += res.n_count;
 
@@ -768,10 +786,15 @@ namespace Chroma
 		    } // zero_colorvecs ??
 	      
 		  // Extract into the temporary output array
+			  StopWatch tpeek;
+		  	  tpeek.reset();
+		  	  tpeek.start();
 		  for(int spin_sink=0; spin_sink < Ns; ++spin_sink)
 		    {
 		      ferm_out(spin_sink) = peekSpin(quark_soln, spin_sink);
 		    }
+		      tpeek.stop();
+		      QDPIO::cout<<"Cost at peekSpin is "<<tpeek.getTimeInSeconds()<<" secs"<<std::endl;
 
 		  snarss1.stop();
 		  QDPIO::cout << "Time to compute prop for spin_source= " << spin_source << "  colorvec_src= " << colorvec_src << "  time = " 
