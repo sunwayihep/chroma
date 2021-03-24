@@ -57,9 +57,7 @@ namespace Chroma
   }
 
   SystemSolverResults_t 
-  LinOpSysSolverQUDAClover::qudaInvert(const CloverTermT<T, U>& clover,
-				       const CloverTermT<T, U>& invclov,
-				       const T& chi_s,
+  LinOpSysSolverQUDAClover::qudaInvert(const T& chi_s,
 				       T& psi_s) const{
 
     SystemSolverResults_t ret;

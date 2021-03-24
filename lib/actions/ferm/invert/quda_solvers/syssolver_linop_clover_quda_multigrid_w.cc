@@ -139,7 +139,7 @@ namespace Chroma
     // void* spinorOut = GetMemoryPtr( psi_s.getId() );
     void* spinorIn;
     void* spinorOut;
-    GetMemoryPtr2(spinorIn,spinorOut,mod_chi.getId(),psi_s.getId())
+    GetMemoryPtr2(spinorIn,spinorOut,chi_s.getId(),psi_s.getId())
 
 #endif
 

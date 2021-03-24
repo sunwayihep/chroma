@@ -601,6 +601,8 @@ public:
 	 */
 	SystemSolverResults_t operator() (T& psi, const T& chi) const
 	{
+		StopWatch swatch2;
+		swatch2.start();
 		SystemSolverResults_t res;
 
 		START_CODE();
@@ -628,9 +630,7 @@ public:
 			}else{
 				g_chi[ rb[1] ]  = GFixMat * chi;
 				g_psi[ rb[1] ]  = GFixMat * psi;
-				res = qudaInvert(*clov,
-						*invclov,
-						g_chi,
+				res = qudaInvert(g_chi,
 						g_psi);
 				QDPIO::cout << "Untransforming solution." << std::endl;
 				psi[ rb[1]]  = adj(GFixMat)*g_psi;
@@ -642,36 +642,39 @@ public:
 				QDPIO::cout<<"Solve twisted-Clover fermion"<<std::endl;
 				res = qudaTwistedCloverInvert(chi, psi);
 			}else{
-				res = qudaInvert(*clov,
-						*invclov,
-						chi,
+				res = qudaInvert(chi,
 						psi);
 			}
 		}
 
 		swatch.stop();
+		QDPIO::cout << "Cost at qudaInvert "<<swatch.getTimeInSeconds()<<" sec"<<std::endl;
 
 
-		{
+		if(!invParam.SilentFailP){
+			swatch.reset();
+			swatch.start();
+
 			T r;
 			r[A->subset()]=chi;
 			T tmp;
 			(*A)(tmp, psi, PLUS);
 			r[A->subset()] -= tmp;
 			res.resid = sqrt(norm2(r, A->subset()));
-		}
+			Double rel_resid = res.resid/sqrt(norm2(chi,A->subset()));
 
-		Double rel_resid = res.resid/sqrt(norm2(chi,A->subset()));
-
-		QDPIO::cout << "QUDA_"<< solver_string <<"_CLOVER_SOLVER: " << res.n_count << " iterations. Rsd = " << res.resid << " Relative Rsd = " << rel_resid << std::endl;
-
-		// Convergence Check/Blow Up
-		if ( ! invParam.SilentFailP ) {
+			swatch.stop();
+			QDPIO::cout << "Cost after residual check "<<swatch.getTimeInSeconds()<<" sec"<<std::endl;
+			QDPIO::cout << "QUDA_"<< solver_string <<"_CLOVER_SOLVER: " << res.n_count << " iterations. Rsd = " << res.resid << " Relative Rsd = " << rel_resid << std::endl;
+			
 			if (  toBool( rel_resid >  invParam.RsdToleranceFactor*invParam.RsdTarget) ) {
 				QDPIO::cerr << "ERROR: QUDA Solver residuum is outside tolerance: QUDA resid="<< rel_resid << " Desired =" << invParam.RsdTarget << " Max Tolerated = " << invParam.RsdToleranceFactor*invParam.RsdTarget << std::endl;
 				QDP_abort(1);
 			}
 		}
+
+		swatch2.stop();
+		QDPIO::cout << "Cost in the SystemSolver operator() "<<swatch2.getTimeInSeconds()<<" sec"<<std::endl;
 
 		END_CODE();
 		return res;
@@ -699,9 +702,7 @@ private:
 	Handle< CloverTermT<T, U> > clov;
 	Handle< CloverTermT<T, U> > invclov;
 
-	SystemSolverResults_t qudaInvert(const CloverTermT<T, U>& clover,
-			const CloverTermT<T, U>& inv_clov,
-			const T& chi_s,
+	SystemSolverResults_t qudaInvert(const T& chi_s,
 			T& psi_s
 	)const ;
   
